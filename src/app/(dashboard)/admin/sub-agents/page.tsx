@@ -48,7 +48,8 @@ export default async function SubAgentsPage() {
     defaultMarkupPct: Number(a.defaultMarkupPct),
     commissionPct: Number(a.commissionPct),
     creditLimit: Number(a.creditLimit),
-    walletBalance: Number(a.walletBalance),
+       walletBalance: Number(a.walletBalance),
+    walletLocked: a.walletLocked,
     bookingCount: a._count.bookings,
     totalCommissionEarned: a.commissionEntries.reduce(
       (sum, c) => sum + Number(c.commissionAmount),
