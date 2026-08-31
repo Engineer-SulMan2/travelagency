@@ -1,0 +1,1003 @@
+// ==========================================================
+// Travel Agency SaaS — Phase 1 Schema
+// Covers: Auth (NextAuth/Auth.js), Agency + Sub-Agent hierarchy
+// Later phases will extend this file with Booking, Flight,
+// Hotel, Payment, Wallet-transaction models etc.
+// ==========================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -------------------- Enums --------------------
+
+enum Role {
+  SUPER_ADMIN   // platform owner (you)
+  AGENCY_ADMIN  // owns an agency, manages sub-agents
+  SUB_AGENT     // sells under an agency, has markup/commission
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+// -------------------- Auth.js required models --------------------
+// Kept even though we primarily use Credentials + JWT, so that
+// OAuth providers can be added later without a schema migration.
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// -------------------- Core domain models --------------------
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  email     String?
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true)
+
+  // Default markup % applied to newly created sub-agents (Phase 3).
+  // Each sub-agent's own defaultMarkupPct can still be overridden individually.
+  defaultMarkupPct Decimal @default(5) @db.Decimal(5, 2)
+
+  // Base64 data URL of the agency's uploaded logo — no external image
+  // storage is configured, so it's stored directly (see src/lib/actions/profile.ts).
+  logoUrl String? @db.Text
+
+  businessHours       String?
+  termsAndConditions  String? @db.Text
+
+  // Bookings with totalAmount >= this require admin approval before being
+  // confirmed. 0 (default) means approval is disabled — every booking
+  // confirms immediately, as in Phases 1-8.
+  approvalThreshold Decimal @default(0) @db.Decimal(12, 2)
+
+  // Display-only currency (Phase 10). All amounts are still stored and
+  // calculated internally in PKR — this only controls how they're
+  // formatted/converted for display, via mock exchange rates since no
+  // live forex API is configured (see src/lib/currency.ts).
+  currency String @default("PKR")
+
+  // Null = pending Super Admin approval (new self-registered agencies
+  // can't sign in until approved). isActive still governs a
+  // separately-suspendable state once approved.
+  approvedAt DateTime?
+
+  // Stamp/signature image shown on printed invoices (Phase 11).
+  stampUrl String? @db.Text
+
+  // Tax ID + sequential invoice numbering (Phase 12). invoiceCounter is
+  // incremented transactionally each time a booking is created, giving
+  // every booking a stable per-agency sequential invoiceNumber.
+  taxId          String?
+  invoiceCounter Int     @default(0)
+
+  // Informational cancellation/refund policy text per product, shown on
+  // booking review and invoices — does NOT change the actual refund
+  // calculation in cancelBooking(), which stays untouched.
+  flightCancellationPolicy  String? @db.Text
+  hotelCancellationPolicy   String? @db.Text
+  packageCancellationPolicy String? @db.Text
+  visaCancellationPolicy    String? @db.Text
+
+  // When true, a sub-agent's commission % at booking time is looked up
+  // from commissionTiers (based on their calendar-month revenue so far)
+  // instead of using their fixed User.commissionPct. Off by default —
+  // existing agencies keep exact current behavior until they opt in.
+  useCommissionTiers Boolean @default(false)
+  commissionTiers    CommissionTier[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  commissionEntries CommissionEntry[]
+  packages         Package[]
+
+  @@map("agencies")
+}
+
+model User {
+  id       String     @id @default(cuid())
+  name     String
+  email    String     @unique
+  phone    String?    // needed for SMS OTP delivery (SendPK) — optional so existing users aren't broken
+  password String? // hashed with bcrypt; null if OAuth-only
+  role     Role       @default(SUB_AGENT)
+  status   UserStatus @default(ACTIVE)
+
+  // Multi-tenant + hierarchy
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+
+  // A sub-agent can optionally report to another user (e.g. senior sub-agent)
+  parentId String?
+  parent   User?   @relation("UserHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children User[]  @relation("UserHierarchy")
+
+  // Wallet balance snapshot (ledger/transactions come in Phase 6)
+  walletBalance Decimal @default(0) @db.Decimal(12, 2)
+
+  // Default markup % this user charges over net fare
+  defaultMarkupPct Decimal @default(0) @db.Decimal(5, 2)
+
+  // % of the markup this sub-agent keeps as commission; the rest is the
+  // agency's share. Not meaningful for AGENCY_ADMIN/SUPER_ADMIN (they keep 100%).
+  commissionPct Decimal @default(70) @db.Decimal(5, 2)
+
+   emailVerified DateTime?
+  image         String?
+
+  // Authenticator app (TOTP) 2FA — an alternative to the email OTP flow.
+  // totpSecret is set as soon as setup starts, but totpEnabled only flips
+  // to true after the user proves they scanned it right by entering one
+  // valid code — see src/lib/actions/totp-setup.ts.
+  totpSecret  String?
+  totpEnabled Boolean @default(false)
+
+  accounts         Account[]
+  sessions         Session[]
+  bookings         Booking[]
+  hotelBookings    HotelBooking[]
+  packageBookings  PackageBooking[]
+  visaBookings     VisaBooking[]
+  commissionEntries CommissionEntry[]
+  walletTransactions WalletTransaction[]
+  passwordResetTokens PasswordResetToken[]
+  otpCodes         OtpCode[]
+
+    // Sub-agent's wallet can go negative up to this limit (e.g. trusted agents
+  // who settle weekly) — 0 means no credit, must top up before booking.
+  creditLimit Decimal @default(0) @db.Decimal(12, 2)
+
+  // When true, this user cannot create bookings (which debit the wallet)
+  // or top up — an agency admin freezes the wallet without suspending the
+  // whole account. Admin-initiated adjustments/refunds still work.
+  walletLocked Boolean @default(false)
+
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+  customers      Customer[]
+  trustedDevices TrustedDevice[]
+  loginEvents    LoginEvent[]
+    inquiries      Inquiry[]
+  documents      SubAgentDocument[]
+  savedRoutes    SavedRoute[]
+  goal           Goal?
+  quotes         Quote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([parentId])
+  @@map("users")
+}
+
+// -------------------- Phase 2: Flights (mock) + Booking --------------------
+// Flight search results themselves are NOT stored — they're generated by a
+// mock provider (see src/lib/mock-flights.ts) standing in for the real
+// Amadeus/Duffel integration that lands in Phase 7. A Booking is a snapshot
+// of the flight the agent chose, taken at the moment of booking.
+
+enum CabinClass {
+  ECONOMY
+  PREMIUM_ECONOMY
+  BUSINESS
+  FIRST
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PassengerType {
+  ADULT
+  CHILD
+  INFANT
+}
+
+enum TripType {
+  ONE_WAY
+  ROUND_TRIP
+  MULTI_CITY
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  bookingRef String        @unique // e.g. TRV-9F3K2A
+  status     BookingStatus @default(PENDING)
+  tripType   TripType      @default(ONE_WAY)
+
+  // Who booked it
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  agencyId String?
+
+  // Flight snapshot (copied from the mock/GDS result at booking time).
+  // This is always the FIRST leg (outbound) — ROUND_TRIP and MULTI_CITY
+  // bookings store their additional legs in the `additionalLegs` relation
+  // below, so every existing single-leg booking stays valid unchanged.
+  airline       String
+  flightNumber  String
+  origin        String
+  destination   String
+  departureAt   DateTime
+  arrivalAt     DateTime
+  cabinClass    CabinClass @default(ECONOMY)
+
+  additionalLegs FlightLeg[]
+
+  // Pricing snapshot
+  netFare      Decimal @db.Decimal(12, 2) // cost price from the "GDS"
+  markupPct    Decimal @db.Decimal(5, 2) // markup % applied at booking time
+  markupAmount Decimal @db.Decimal(12, 2)
+  sellingFare  Decimal @db.Decimal(12, 2) // netFare + markupAmount, per passenger
+  totalAmount  Decimal @db.Decimal(12, 2) // sellingFare * passenger count
+
+  passengers Passenger[]
+  commission CommissionEntry?
+
+  // Amendment + approval tracking (Phase 9)
+  amendedAt    DateTime?
+  approvedById String?
+  approvedAt   DateTime?
+  invoiceNumber Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([agencyId])
+  @@map("bookings")
+}
+
+model Passenger {
+  id             String        @id @default(cuid())
+  bookingId      String
+  booking        Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type           PassengerType @default(ADULT)
+  title          String // Mr / Mrs / Ms
+  firstName      String
+  lastName       String
+  dateOfBirth    DateTime?
+  passportNumber String?
+
+  @@index([bookingId])
+  @@map("passengers")
+}
+
+// -------------------- Phase 3: Markup / Commission --------------------
+// Every booking already carries its own markupPct/markupAmount snapshot
+// (set from User.defaultMarkupPct at booking time). CommissionEntry splits
+// that markup between the sub-agent (their commission) and the agency
+// (the remainder) using the sub-agent's commissionPct at booking time —
+// this is the unified ledger that Phase 5 reporting and Phase 6 wallet
+// payouts read from, across flight/hotel/package bookings (Phase 4).
+
+enum ProductType {
+  FLIGHT
+  HOTEL
+  PACKAGE
+  VISA
+}
+
+model CommissionEntry {
+  id          String      @id @default(cuid())
+  productType ProductType
+
+  // Exactly one of these four is set, matching productType.
+  bookingId        String?         @unique
+  booking          Booking?        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  hotelBookingId   String?         @unique
+  hotelBooking     HotelBooking?   @relation(fields: [hotelBookingId], references: [id], onDelete: Cascade)
+  packageBookingId String?         @unique
+  packageBooking   PackageBooking? @relation(fields: [packageBookingId], references: [id], onDelete: Cascade)
+  visaBookingId    String?         @unique
+  visaBooking      VisaBooking?    @relation(fields: [visaBookingId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+
+  markupAmount     Decimal @db.Decimal(12, 2) // total markup on the booking (all pax/rooms/travelers/applicants)
+  commissionPct    Decimal @db.Decimal(5, 2) // sub-agent's cut, snapshotted at booking time
+  commissionAmount Decimal @db.Decimal(12, 2) // markupAmount * commissionPct
+  agencyShare      Decimal @db.Decimal(12, 2) // markupAmount - commissionAmount
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([agencyId])
+  @@index([productType])
+  @@map("commission_entries")
+}
+
+// -------------------- Phase 4: Hotels (mock) --------------------
+// Same pattern as Booking (flights): hotel search results are generated by
+// a mock provider (src/lib/mock-hotels.ts) standing in for a real hotel
+// API. HotelBooking is a snapshot taken at the moment of booking.
+
+model HotelBooking {
+  id         String        @id @default(cuid())
+  bookingRef String        @unique
+  status     BookingStatus @default(PENDING)
+
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  agencyId String?
+
+  hotelName  String
+  city       String
+  roomType   String
+  checkIn    DateTime
+  checkOut   DateTime
+  nights     Int
+  rooms      Int
+
+  // Pricing snapshot — net/markup/selling are PER ROOM PER NIGHT
+  netFare      Decimal @db.Decimal(12, 2)
+  markupPct    Decimal @db.Decimal(5, 2)
+  markupAmount Decimal @db.Decimal(12, 2)
+  sellingFare  Decimal @db.Decimal(12, 2)
+  totalAmount  Decimal @db.Decimal(12, 2) // sellingFare * nights * rooms
+
+  guests HotelGuest[]
+  commission CommissionEntry?
+
+  // Amendment + approval tracking (Phase 9)
+  amendedAt    DateTime?
+  approvedById String?
+  approvedAt   DateTime?
+  invoiceNumber Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([agencyId])
+  @@map("hotel_bookings")
+}
+
+model HotelGuest {
+  id             String       @id @default(cuid())
+  hotelBookingId String
+  hotelBooking   HotelBooking @relation(fields: [hotelBookingId], references: [id], onDelete: Cascade)
+  title          String
+  firstName      String
+  lastName       String
+
+  @@index([hotelBookingId])
+  @@map("hotel_guests")
+}
+
+// -------------------- Phase 4: Packages --------------------
+// Unlike flights/hotels, packages are curated products the agency (or
+// platform) defines up front — not generated by a mock search. Agents
+// browse the catalog and book a package for N travelers on a travel date.
+// `category` is what splits the single catalog into the separate "Tour
+// Bookings" / "Umrah Bookings" / "Group Bookings" sidebar entries — they
+// share one booking flow, commission ledger, and reporting since they're
+// structurally identical products.
+
+enum PackageCategory {
+  HOLIDAY // generic package (shown under "Packages")
+  TOUR
+  UMRAH
+  GROUP
+}
+
+model Package {
+  id          String           @id @default(cuid())
+  title       String
+  destination String
+  durationDays Int
+  description String           @db.Text
+  inclusions  String[] // e.g. ["Return flights", "4-star hotel", "Daily breakfast"]
+  images      String[] @default([]) // base64 data URLs, up to 3
+    basePrice   Decimal          @db.Decimal(12, 2) // net cost per traveler
+  maxSeats    Int? // null = unlimited. Remaining seats are computed from
+                    // active PackageBooking.travelers, not stored, so it
+                    // never drifts out of sync with actual bookings.
+    category    PackageCategory  @default(HOLIDAY)
+  isActive    Boolean          @default(true)
+
+  // Optional expiry date. Once past, the package stops appearing in the
+  // sub-agent-facing catalog automatically (see getPackageCatalog) — the
+  // agency admin still sees it on Manage Packages, marked "Expired", so
+  // they can extend the date or leave it retired without losing history.
+  validUntil DateTime?
+
+  // Null = platform-wide package available to every agency.
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+
+  bookings PackageBooking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([category])
+  @@map("packages")
+}
+
+model PackageBooking {
+  id         String        @id @default(cuid())
+  bookingRef String        @unique
+  status     BookingStatus @default(PENDING)
+
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  agencyId String?
+
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id], onDelete: Restrict)
+
+  travelDate      DateTime
+  travelers       Int
+  leadTravelerName String
+
+  // Pricing snapshot — net/markup/selling are PER TRAVELER
+  netFare      Decimal @db.Decimal(12, 2)
+  markupPct    Decimal @db.Decimal(5, 2)
+  markupAmount Decimal @db.Decimal(12, 2)
+  sellingFare  Decimal @db.Decimal(12, 2)
+  totalAmount  Decimal @db.Decimal(12, 2) // sellingFare * travelers
+
+  commission CommissionEntry?
+
+  // Amendment + approval tracking (Phase 9)
+  amendedAt    DateTime?
+  approvedById String?
+  approvedAt   DateTime?
+  invoiceNumber Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([agencyId])
+  @@index([packageId])
+  @@map("package_bookings")
+}
+
+// -------------------- Phase 6: Payment Gateway + Wallet --------------------
+// User.walletBalance (Phase 1) is a running snapshot; WalletTransaction is
+// the append-only ledger that explains how it got there. Every top-up and
+// every booking payment/commission payout writes a row here, and
+// User.walletBalance is updated in the same DB transaction so they never
+// drift apart.
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum WalletTransactionReason {
+  TOPUP              // agent/admin added funds via the payment gateway
+  BOOKING_PAYMENT    // net cost of a booking, debited from the sub-agent's wallet
+  COMMISSION_EARNED  // sub-agent's cut of the markup, credited on booking
+  REFUND             // booking cancelled — net cost credited back
+  ADJUSTMENT         // manual correction by an agency admin
+}
+
+enum PaymentMethod {
+  CARD
+  JAZZCASH
+  EASYPAISA
+}
+
+model WalletTransaction {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type   WalletTransactionType
+  reason WalletTransactionReason
+  amount Decimal @db.Decimal(12, 2) // always positive; `type` gives direction
+  balanceAfter Decimal @db.Decimal(12, 2) // snapshot for audit trail
+
+  // Optional link back to whatever triggered this transaction
+  referenceType ProductType?
+  referenceId   String?
+
+  paymentMethod    PaymentMethod?
+  paymentReference String? // mock gateway transaction id
+
+  description String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([referenceType, referenceId])
+  @@map("wallet_transactions")
+}
+
+// -------------------- Visa Bookings --------------------
+// Structurally simpler than flights/hotels/packages: no search/catalog,
+// just a service fee looked up from a mock fee schedule (see
+// src/lib/visa-fees.ts) per destination country + visa type. Same
+// markup/commission/wallet pattern as everything else.
+
+enum VisaType {
+  TOURIST
+  BUSINESS
+  STUDENT
+  WORK
+  UMRAH
+  TRANSIT
+}
+
+model VisaBooking {
+  id         String        @id @default(cuid())
+  bookingRef String        @unique
+  status     BookingStatus @default(PENDING)
+
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  agencyId String?
+
+  destinationCountry String
+  visaType            VisaType
+  applicants          Int
+  travelDate          DateTime
+  leadApplicantName   String
+  passportNumber      String
+
+  // Pricing snapshot — net/markup/selling are PER APPLICANT
+  netFare      Decimal @db.Decimal(12, 2)
+  markupPct    Decimal @db.Decimal(5, 2)
+  markupAmount Decimal @db.Decimal(12, 2)
+  sellingFare  Decimal @db.Decimal(12, 2)
+  totalAmount  Decimal @db.Decimal(12, 2) // sellingFare * applicants
+
+  commission CommissionEntry?
+
+  // Amendment + approval tracking (Phase 9)
+  amendedAt    DateTime?
+  approvedById String?
+  approvedAt   DateTime?
+  invoiceNumber Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([agencyId])
+  @@map("visa_bookings")
+}
+
+// -------------------- Password Reset --------------------
+// Demo has no email service configured, so the reset link is shown
+// directly on screen after requesting it (see forgot-password page) —
+// in production this token would be emailed instead.
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// -------------------- Login OTP --------------------
+// Second factor after email+password. No SMS/email provider is configured
+// in this demo, so the code is returned directly to the login page and
+// shown on screen — in production this would be sent via SMS/email instead.
+
+enum OtpPurpose {
+  LOGIN
+}
+
+model OtpCode {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  purpose   OtpPurpose @default(LOGIN)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime   @default(now())
+
+  @@index([userId])
+  @@map("otp_codes")
+}
+
+// -------------------- Notifications --------------------
+
+enum NotificationType {
+  NEW_BOOKING
+  BOOKING_CANCELLED
+  LOW_WALLET_BALANCE
+  SUB_AGENT_STATUS_CHANGED
+  COMMISSION_EARNED
+  SYSTEM
+}
+
+model Notification {
+  id      String           @id @default(cuid())
+  userId  String
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type    NotificationType
+  title   String
+  message String
+  link    String?
+  isRead  Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// -------------------- Activity Log --------------------
+// Lightweight audit trail — who did what, across sub-agent management,
+// bookings, and wallet adjustments. Read-only from the UI.
+
+model ActivityLog {
+  id          String  @id @default(cuid())
+  actorId     String
+  actor       User    @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  agencyId    String?
+  action      String // short machine-readable code, e.g. "SUB_AGENT_CREATED"
+  description String // human-readable summary shown in the UI
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([agencyId])
+  @@map("activity_logs")
+}
+
+// -------------------- Customer CRM --------------------
+// Reusable customer/passenger contacts so agents don't re-type the same
+// traveler's details on every booking.
+
+model Customer {
+  id             String   @id @default(cuid())
+  agencyId       String?
+  createdById    String
+  createdBy      User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  fullName       String
+  phone          String?
+  email          String?
+  passportNumber String?
+  notes          String?
+    tags           String[] @default([])
+  loyaltyPoints  Int      @default(0)
+  reminders      Reminder[]
+  notes_log      CustomerNote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([createdById])
+  @@map("customers")
+}
+
+// -------------------- Commission Payout Batches --------------------
+// A payout batch settles a sub-agent's already-earned commission (sitting
+// as spendable wallet balance) out to them for real, e.g. via bank
+// transfer — recorded here for audit, and the settled amount is debited
+// from their wallet since it's no longer "in" the system.
+
+model PayoutBatch {
+  id          String   @id @default(cuid())
+  agencyId    String?
+  createdById String
+  periodStart DateTime
+  periodEnd   DateTime
+  totalAmount Decimal  @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  entries PayoutEntry[]
+
+  @@index([agencyId])
+  @@map("payout_batches")
+}
+
+model PayoutEntry {
+  id               String      @id @default(cuid())
+  batchId          String
+  batch            PayoutBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  userId           String
+  commissionAmount Decimal     @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([batchId])
+  @@index([userId])
+  @@map("payout_entries")
+}
+
+// -------------------- Trusted Devices ("Remember this device") --------------------
+// When a user opts in on the OTP screen, a random token is set as an
+// httpOnly cookie and its hash stored here. Future logins from that browser
+// skip the OTP step as long as a matching, unexpired record exists.
+
+model TrustedDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("trusted_devices")
+}
+
+// -------------------- Login Activity + Failed Login Alerts --------------------
+
+model LoginEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  success   Boolean
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([email, createdAt])
+  @@map("login_events")
+}
+
+// -------------------- Waitlist / Inquiries --------------------
+// A lightweight pre-booking record for a customer's interest before it
+// becomes a real booking — same visibility rule as Customer (admins see
+// the whole agency, sub-agents see their own).
+
+enum InquiryStatus {
+  OPEN
+  CONTACTED
+  CONVERTED
+  CLOSED
+}
+
+model Inquiry {
+  id             String        @id @default(cuid())
+  agencyId       String?
+  createdById    String
+  createdBy      User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  customerName   String
+  phone          String?
+  email          String?
+  productType    ProductType?
+  details        String        @db.Text
+  status         InquiryStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([createdById])
+  @@map("inquiries")
+}
+
+// -------------------- Sub-Agent Documents --------------------
+// Contracts, ID cards, etc. Base64-stored like avatars/logos — no
+// external file storage is configured in this demo.
+
+model SubAgentDocument {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agencyId     String?
+  uploadedById String
+  name         String
+  fileType     String
+  fileData     String   @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([agencyId])
+  @@map("sub_agent_documents")
+}
+
+
+// -------------------- Commission Tiers --------------------
+// A sub-agent's commission % this month is the highest tier whose
+// minRevenue they've cleared (revenue = sum of their active bookings'
+// totalAmount since the 1st of the current calendar month, in PKR).
+// Only takes effect when Agency.useCommissionTiers is true.
+
+model CommissionTier {
+  id            String  @id @default(cuid())
+  agencyId      String
+  agency        Agency  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  label         String // e.g. "Bronze", "Silver", "Gold"
+  minRevenue    Decimal @db.Decimal(12, 2) // PKR, monthly revenue threshold
+  commissionPct Decimal @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([agencyId])
+  @@map("commission_tiers")
+}
+
+// -------------------- Follow-up Reminders --------------------
+// A sub-agent's personal to-do for a customer — "call back in 3 days",
+// etc. Only visible to whoever created it (and admins, via agencyId).
+
+model Reminder {
+  id          String    @id @default(cuid())
+  userId      String
+  agencyId    String?
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  note        String
+  dueAt       DateTime
+  completed   Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([agencyId])
+  @@index([customerId])
+  @@map("reminders")
+}
+
+// -------------------- Customer Communication Log --------------------
+// Short notes logged against a customer — "called, discussed price,
+// will decide by Friday" — same team-visible pattern as BookingNote.
+
+model CustomerNote {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  agencyId    String?
+  authorId    String
+  note        String   @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@index([agencyId])
+  @@map("customer_notes")
+}
+
+
+
+// -------------------- Additional Flight Legs --------------------
+// For ROUND_TRIP (leg 2 = return) and MULTI_CITY (legs 2, 3, ...) bookings.
+// The first leg always lives directly on Booking (see tripType above) —
+// this table only ever holds the extra legs beyond that first one.
+
+model FlightLeg {
+  id           String   @id @default(cuid())
+  bookingId    String
+  booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  legOrder     Int // 1 = second leg, 2 = third leg, etc. (first leg = 0, on Booking itself)
+  airline      String
+  flightNumber String
+  origin       String
+  destination  String
+  departureAt  DateTime
+  arrivalAt    DateTime
+
+  @@index([bookingId])
+  @@map("flight_legs")
+}
+
+
+// -------------------- Saved (favorite) flight routes --------------------
+
+model SavedRoute {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label       String?
+  origin      String
+  destination String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("saved_routes")
+}
+
+// -------------------- Personal sales goal --------------------
+// One record per user — always represents their current target. Progress
+// against it is computed live from bookings, same as commission tiers.
+
+model Goal {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetAmount Decimal  @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("goals")
+}
+
+// -------------------- Customer quotes --------------------
+// A simple, product-agnostic price estimate a sub-agent can put together
+// and share with a customer before a real booking exists. Not wired into
+// the live flight/hotel search pricing — this is a manual write-up.
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  EXPIRED
+}
+
+model Quote {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agencyId        String?
+  customerName    String
+  customerContact String?
+  title           String
+  description     String?     @db.Text
+  amount          Decimal     @db.Decimal(12, 2)
+  status          QuoteStatus @default(DRAFT)
+  shareToken      String      @unique @default(cuid())
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([agencyId])
+  @@map("quotes")
+}

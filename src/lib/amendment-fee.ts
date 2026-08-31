@@ -1,0 +1,1 @@
+export const AMENDMENT_FEE = 1500;
