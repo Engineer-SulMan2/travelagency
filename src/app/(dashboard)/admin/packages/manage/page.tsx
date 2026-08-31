@@ -9,7 +9,7 @@ import { ManagePackageRow } from "@/components/packages/manage-package-row";
 export default async function ManagePackagesPage() {
   const session = await auth();
   if (!session) redirect("/login");
-  if (![Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role)) {
+  if (!([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role)) {
     redirect("/agent");
   }
 

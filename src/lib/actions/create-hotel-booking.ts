@@ -6,78 +6,50 @@ import { prisma } from "@/lib/prisma";
 import { recordWalletTransaction } from "@/lib/wallet";
 import { computeBookingPricing } from "@/lib/pricing";
 import { getEffectiveCommissionPct } from "@/lib/commission-tiers";
+import type { HotelResult } from "@/types/hotel";
+import type { GuestDraft } from "@/stores/hotel-booking-store";
 
-const bookSchema = z.object({
-  packageId: z.string().min(1),
-  travelDate: z.string().min(1),
-  travelers: z.coerce.number().int().min(1).max(20),
-  leadTravelerName: z.string().min(2),
+const guestSchema = z.object({
+  title: z.enum(["Mr", "Mrs", "Ms"]),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
 });
 
 function generateBookingRef() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let ref = "PKG-";
+  let ref = "HTL-";
   for (let i = 0; i < 6; i++) ref += chars[Math.floor(Math.random() * chars.length)];
   return ref;
 }
 
-export type PackageBookingState = { error?: string; success?: boolean; bookingRef?: string };
-
-export async function createPackageBooking(
-  _prevState: PackageBookingState,
-  formData: FormData
-): Promise<PackageBookingState> {
+export async function createHotelBooking(
+  hotel: HotelResult,
+  checkIn: string,
+  checkOut: string,
+  nights: number,
+  rooms: number,
+  guests: GuestDraft[]
+) {
   const session = await auth();
-  if (!session) return { error: "Not authenticated" };
+  if (!session) throw new Error("Not authenticated");
 
-  const parsed = bookSchema.safeParse({
-    packageId: formData.get("packageId"),
-    travelDate: formData.get("travelDate"),
-    travelers: formData.get("travelers"),
-    leadTravelerName: formData.get("leadTravelerName"),
-  });
+  const parsedGuests = z.array(guestSchema).min(1).parse(guests);
 
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
-
-  const { packageId, travelDate, travelers, leadTravelerName } = parsed.data;
-
-  const [user, pkg] = await Promise.all([
-    prisma.user.findUnique({ where: { id: session.user.id } }),
-    prisma.package.findUnique({ where: { id: packageId } }),
-  ]);
-
-  if (!user) return { error: "User not found" };
-  if (user.walletLocked) return { error: "Your wallet is locked. Contact your agency admin to unlock it." };
-  if (!pkg || !pkg.isActive) return { error: "Package is no longer available" };
-
-  if (pkg.maxSeats != null) {
-    const booked = await prisma.packageBooking.aggregate({
-      where: { packageId: pkg.id, status: { not: "CANCELLED" } },
-      _sum: { travelers: true },
-    });
-    const remaining = pkg.maxSeats - (booked._sum.travelers ?? 0);
-    if (travelers > remaining) {
-      return {
-        error:
-          remaining <= 0
-            ? "This package is fully booked."
-            : `Only ${remaining} seat${remaining === 1 ? "" : "s"} left on this package.`,
-      };
-    }
-  }
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!user) throw new Error("User not found");
+  if (user.walletLocked) throw new Error("Your wallet is locked. Contact your agency admin to unlock it.");
 
   const agency = user.agencyId ? await prisma.agency.findUnique({ where: { id: user.agencyId } }) : null;
 
   const markupPct = Number(user.defaultMarkupPct);
   const commissionPct = await getEffectiveCommissionPct(user);
-  const pricing = computeBookingPricing(Number(pkg.basePrice), markupPct, commissionPct, travelers);
+  const quantity = nights * rooms;
+  const pricing = computeBookingPricing(hotel.netFarePerNight, markupPct, commissionPct, quantity);
 
   if (Number(user.walletBalance) < pricing.netCost) {
-    return {
-      error: `Insufficient wallet balance. This booking needs PKR ${pricing.netCost.toLocaleString("en-PK")} net cost, but your wallet has PKR ${Number(user.walletBalance).toLocaleString("en-PK")}. Please top up your wallet first.`,
-    };
+    throw new Error(
+      `Insufficient wallet balance. This booking needs PKR ${pricing.netCost.toLocaleString("en-PK")} net cost, but your wallet has PKR ${Number(user.walletBalance).toLocaleString("en-PK")}. Please top up your wallet.`
+    );
   }
 
   const needsApproval =
@@ -92,7 +64,7 @@ export async function createPackageBooking(
 
   let bookingRef = generateBookingRef();
   for (let i = 0; i < 5; i++) {
-    const existing = await prisma.packageBooking.findUnique({ where: { bookingRef } });
+    const existing = await prisma.hotelBooking.findUnique({ where: { bookingRef } });
     if (!existing) break;
     bookingRef = generateBookingRef();
   }
@@ -108,29 +80,39 @@ export async function createPackageBooking(
       invoiceNumber = updatedAgency.invoiceCounter;
     }
 
-    const created = await tx.packageBooking.create({
+    const created = await tx.hotelBooking.create({
       data: {
         bookingRef,
         status: needsApproval ? "PENDING" : "CONFIRMED",
         invoiceNumber,
         userId: user.id,
         agencyId: user.agencyId,
-        packageId: pkg.id,
-        travelDate: new Date(travelDate),
-        travelers,
-        leadTravelerName,
-        netFare: pkg.basePrice,
+        hotelName: hotel.name,
+        city: hotel.city,
+        roomType: hotel.roomType,
+        checkIn: new Date(checkIn),
+        checkOut: new Date(checkOut),
+        nights,
+        rooms,
+        netFare: hotel.netFarePerNight,
         markupPct,
         markupAmount: pricing.markupAmount,
         sellingFare: pricing.sellingFare,
         totalAmount: pricing.totalAmount,
+        guests: {
+          create: parsedGuests.map((g) => ({
+            title: g.title,
+            firstName: g.firstName,
+            lastName: g.lastName,
+          })),
+        },
       },
     });
 
     await tx.commissionEntry.create({
       data: {
-        productType: "PACKAGE",
-        packageBookingId: created.id,
+        productType: "HOTEL",
+        hotelBookingId: created.id,
         userId: user.id,
         agencyId: user.agencyId,
         markupAmount: pricing.totalMarkup,
@@ -145,20 +127,20 @@ export async function createPackageBooking(
       type: "DEBIT",
       reason: "BOOKING_PAYMENT",
       amount: pricing.netCost,
-      referenceType: "PACKAGE",
+      referenceType: "HOTEL",
       referenceId: created.id,
-      description: `Net cost for package booking ${created.bookingRef}`,
+      description: `Net cost for hotel booking ${created.bookingRef}`,
     });
 
     await tx.notification.create({
       data: {
         userId: user.id,
         type: "NEW_BOOKING",
-        title: needsApproval ? "Booking pending approval" : "Package booking confirmed",
+        title: needsApproval ? "Booking pending approval" : "Hotel booking confirmed",
         message: needsApproval
-          ? `${created.bookingRef} — ${pkg.title} needs admin approval before it's confirmed.`
-          : `${created.bookingRef} — ${pkg.title}, ${travelers} traveler${travelers > 1 ? "s" : ""}`,
-        link: `/invoice/package/${created.id}`,
+          ? `${created.bookingRef} — ${hotel.name} needs admin approval before it's confirmed.`
+          : `${created.bookingRef} — ${hotel.name}, ${nights} night${nights > 1 ? "s" : ""}`,
+        link: `/invoice/hotel/${created.id}`,
       },
     });
 
@@ -182,14 +164,14 @@ export async function createPackageBooking(
         type: "CREDIT",
         reason: "COMMISSION_EARNED",
         amount: pricing.commissionAmount,
-        referenceType: "PACKAGE",
+        referenceType: "HOTEL",
         referenceId: created.id,
-        description: `Commission for package booking ${created.bookingRef}`,
+        description: `Commission for hotel booking ${created.bookingRef}`,
       });
     }
 
     return created;
   });
 
-  return { success: true, bookingRef: booking.bookingRef };
+  return { bookingRef: booking.bookingRef, id: booking.id };
 }
