@@ -86,7 +86,7 @@ export async function adjustWallet(
   formData: FormData
 ): Promise<WalletActionState> {
   const session = await auth();
-  if (!session || ![Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role)) {
+  if (!session || !([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role)) {
     return { error: "Not authorized" };
   }
 

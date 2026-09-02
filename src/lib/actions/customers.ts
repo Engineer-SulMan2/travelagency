@@ -155,7 +155,7 @@ export async function getMyCustomers() {
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return [];
 
-  const isAdmin = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(user.role);
+  const isAdmin = ([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(user.role);
 
   const customers = await prisma.customer.findMany({
     where: isAdmin ? { agencyId: user.agencyId } : { createdById: user.id },

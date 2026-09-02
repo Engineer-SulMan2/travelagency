@@ -71,7 +71,7 @@ export async function deleteCustomerNote(noteId: string): Promise<CustomerNoteAc
   const note = await prisma.customerNote.findUnique({ where: { id: noteId } });
   if (!note || note.agencyId !== user.agencyId) return { error: "Note not found" };
 
-  const isAdmin = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(user.role);
+  const isAdmin = ([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(user.role);
   if (!isAdmin && note.authorId !== user.id) return { error: "You can only remove your own notes" };
 
   await prisma.customerNote.delete({ where: { id: noteId } });

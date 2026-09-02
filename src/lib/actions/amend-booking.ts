@@ -16,7 +16,7 @@ async function authorizeAndGetUser(bookingUserId: string, bookingAgencyId: strin
   if (!session) return null;
   const currentUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!currentUser) return null;
-  const isAdmin = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(currentUser.role);
+  const isAdmin = ([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(currentUser.role);
   const authorized = currentUser.id === bookingUserId || (isAdmin && currentUser.agencyId === bookingAgencyId);
   return authorized ? currentUser : null;
 }

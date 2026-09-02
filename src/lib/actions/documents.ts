@@ -12,7 +12,7 @@ const MAX_FILE_DATA_LENGTH = 4_000_000; // ~3MB file, generous ceiling for base6
 
 async function requireAgencyAdmin() {
   const session = await auth();
-  if (!session || ![Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role)) {
+  if (!session || !([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role)) {
     return null;
   }
   return prisma.user.findUnique({ where: { id: session.user.id } });

@@ -22,7 +22,7 @@ export async function globalSearch(query: string): Promise<GlobalSearchResult> {
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return EMPTY;
 
-  const isAdmin = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(user.role);
+  const isAdmin = ([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(user.role);
   const bookingWhere = isAdmin ? { agencyId: user.agencyId } : { userId: user.id };
   const customerWhere = isAdmin ? { agencyId: user.agencyId } : { createdById: user.id };
   const customersHref = isAdmin ? "/admin/customers" : "/agent/customers";

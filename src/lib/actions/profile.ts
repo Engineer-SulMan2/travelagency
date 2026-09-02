@@ -62,7 +62,7 @@ export async function removeProfilePicture(): Promise<ProfileActionState> {
 
 export async function updateAgencyLogo(dataUrl: string): Promise<ProfileActionState> {
   const session = await auth();
-  if (!session || ![Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role)) {
+  if (!session || !([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role)) {
     return { error: "Not authorized" };
   }
 
@@ -81,7 +81,7 @@ export async function updateAgencyLogo(dataUrl: string): Promise<ProfileActionSt
 
 export async function removeAgencyLogo(): Promise<ProfileActionState> {
   const session = await auth();
-  if (!session || ![Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role)) {
+  if (!session || !([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role)) {
     return { error: "Not authorized" };
   }
 
@@ -96,7 +96,7 @@ export async function removeAgencyLogo(): Promise<ProfileActionState> {
 
 export async function updateAgencyStamp(dataUrl: string): Promise<ProfileActionState> {
   const session = await auth();
-  if (!session || ![Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role)) {
+  if (!session || !([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role)) {
     return { error: "Not authorized" };
   }
 
@@ -115,7 +115,7 @@ export async function updateAgencyStamp(dataUrl: string): Promise<ProfileActionS
 
 export async function removeAgencyStamp(): Promise<ProfileActionState> {
   const session = await auth();
-  if (!session || ![Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role)) {
+  if (!session || !([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role)) {
     return { error: "Not authorized" };
   }
 

@@ -66,7 +66,7 @@ async function authorizeReminder(reminderId: string) {
   const reminder = await prisma.reminder.findUnique({ where: { id: reminderId } });
   if (!reminder || reminder.agencyId !== user.agencyId) return { error: "Reminder not found" } as const;
 
-  const isAdmin = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(user.role);
+  const isAdmin = ([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(user.role);
   if (!isAdmin && reminder.userId !== user.id) return { error: "Not authorized" } as const;
 
   return { reminder } as const;
@@ -98,7 +98,7 @@ export async function getReminders(scope: "mine" | "agency"): Promise<ReminderRo
   const user = await requireAgencyMember();
   if (!user) return [];
 
-  const isAdmin = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(user.role);
+  const isAdmin = ([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(user.role);
   const where =
     scope === "agency" && isAdmin ? { agencyId: user.agencyId } : { agencyId: user.agencyId, userId: user.id };
 

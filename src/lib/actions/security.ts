@@ -67,7 +67,7 @@ export async function signOutAllMyDevices(): Promise<SecurityActionState> {
 
 async function requireAgencyAdmin() {
   const session = await auth();
-  if (!session || ![Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role)) return null;
+  if (!session || !([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role)) return null;
   return prisma.user.findUnique({ where: { id: session.user.id } });
 }
 

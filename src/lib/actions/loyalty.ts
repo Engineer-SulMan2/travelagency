@@ -9,7 +9,7 @@ export type LoyaltyActionState = { error?: string; success?: boolean };
 
 function canManage(user: { id: string; role: Role; agencyId: string | null }, customer: { agencyId: string | null; createdById: string }) {
   if (customer.agencyId !== user.agencyId) return false;
-  if ([Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(user.role)) return true;
+  if (([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(user.role)) return true;
   return customer.createdById === user.id;
 }
 
