@@ -22,7 +22,7 @@ export default async function InvoicePage({
 
   const currentUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!currentUser) redirect("/login");
-  const isAdmin = ADMIN_ROLES.includes(currentUser.role);
+  const isAdmin = (ADMIN_ROLES as Role[]).includes(currentUser.role);
 
   function authorized(record: { userId: string; agencyId: string | null } | null) {
     if (!record) return false;
