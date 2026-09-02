@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/lib/auth";
 
-const ADMIN_ROLES = ["SUPER_ADMIN", "AGENCY_ADMIN"];
+const ADMIN_ROLES = ["SUPER_ADMIN", "AGENCY_ADMIN"] as const;
 
 const FEATURES = [
   {
@@ -54,7 +54,7 @@ export default async function HomePage() {
   const session = await auth();
 
   if (session) {
-    if (ADMIN_ROLES.includes(session.user.role)) redirect("/admin");
+    if ((ADMIN_ROLES as readonly string[]).includes(session.user.role)) redirect("/admin");
     redirect("/agent");
   }
 
@@ -113,46 +113,4 @@ export default async function HomePage() {
             </Link>
             <Link
               href="/login"
-              className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50"
-            >
-              Sign in
-            </Link>
-          </div>
-          <p className="mt-4 text-xs text-slate-400">
-            Already part of an agency?{" "}
-            <Link href="/register-agent" className="font-medium text-indigo-600 hover:text-indigo-700">
-              Join as a sub-agent
-            </Link>
-          </p>
-        </div>
-
-        <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
-            >
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                <f.icon className="h-5 w-5 text-indigo-600" />
-              </span>
-              <p className="mt-4 text-sm font-semibold text-slate-900">{f.title}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{f.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-16 flex items-center justify-center gap-8 text-slate-300">
-          <Building2 className="h-6 w-6" />
-          <Package className="h-6 w-6" />
-          <Plane className="h-6 w-6" />
-          <Wallet className="h-6 w-6" />
-          <BarChart3 className="h-6 w-6" />
-        </div>
-      </main>
-
-      <footer className="border-t border-slate-100 py-8 text-center text-xs text-slate-400">
-        Travel Agency SaaS — a demo build.
-      </footer>
-    </div>
-  );
-}
+              className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 shadow-sm transition 

@@ -44,7 +44,7 @@ export async function getInvoiceData(
   id: string,
   currentUser: { id: string; role: Role; agencyId: string | null }
 ): Promise<InvoiceData | null> {
-  const isAdmin = ADMIN_ROLES.includes(currentUser.role);
+  const isAdmin = (ADMIN_ROLES as Role[]).includes(currentUser.role);
 
   function authorized(record: { userId: string; agencyId: string | null } | null) {
     if (!record) return false;

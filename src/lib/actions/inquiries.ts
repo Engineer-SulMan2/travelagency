@@ -58,7 +58,7 @@ export async function createInquiry(
 
 function canManage(user: { id: string; role: Role; agencyId: string | null }, inquiry: { agencyId: string | null; createdById: string }) {
   if (inquiry.agencyId !== user.agencyId) return false;
-  if (ADMIN_ROLES.includes(user.role)) return true;
+  if ((ADMIN_ROLES as Role[]).includes(user.role)) return true;
   return inquiry.createdById === user.id;
 }
 

@@ -27,12 +27,12 @@ export default auth((req) => {
 
   // Logged in but hitting login/register -> send to their dashboard
   if (isLoggedIn && isAuthPage) {
-    const dest = ADMIN_ROLES.includes(role ?? "") ? "/admin" : "/agent";
+    const dest = (ADMIN_ROLES as string[]).includes(role ?? "") ? "/admin" : "/agent";
     return NextResponse.redirect(new URL(dest, nextUrl));
   }
 
   // Sub-agent trying to reach admin-only area
-  if (isAdminArea && !ADMIN_ROLES.includes(role ?? "")) {
+  if (isAdminArea && !(ADMIN_ROLES as string[]).includes(role ?? "")) {
     return NextResponse.redirect(new URL("/agent", nextUrl));
   }
 
