@@ -8,11 +8,12 @@ import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity-log";
 import { Role, UserStatus } from "@prisma/client";
 
-const ADMIN_ROLES = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN];
+// Role[] explicit type set ki hai taake TypeScript type mismatch fail na kare
+const ADMIN_ROLES: Role[] = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN];
 
 async function requireAgencyAdmin() {
   const session = await auth();
-  if (!session || !ADMIN_ROLES.includes(session.user.role as Role)) {
+  if (!session?.user?.role || !ADMIN_ROLES.includes(session.user.role as Role)) {
     throw new Error("Not authorized");
   }
   const admin = await prisma.user.findUnique({ where: { id: session.user.id } });
@@ -183,9 +184,6 @@ export async function toggleSubAgentStatus(userId: string): Promise<SubAgentForm
 }
 
 // -------------------- Wallet lock --------------------
-// Freezes bookings and top-ups for this sub-agent without touching their
-// account status — they can still log in and browse, just not spend or
-// add money. Admin-initiated adjustments/refunds are unaffected.
 
 export async function toggleWalletLock(userId: string): Promise<SubAgentFormState> {
   const admin = await requireAgencyAdmin();
@@ -265,7 +263,6 @@ export async function updateAgencyDefaultMarkup(
 }
 
 // -------------------- Permanent delete (Agency Admin) --------------------
-// Irreversible — unlike suspend, there's no way back once this runs.
 
 export async function deleteSubAgent(userId: string): Promise<SubAgentFormState> {
   const admin = await requireAgencyAdmin();
@@ -352,7 +349,6 @@ export async function rejectSubAgentRegistration(userId: string): Promise<SubAge
       description: `${admin.name} rejected ${target.name}'s registration request`,
     });
 
-    // Never activated, so no bookings/customers to worry about — safe to remove.
     await tx.user.delete({ where: { id: target.id } });
   });
 
