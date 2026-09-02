@@ -58,12 +58,14 @@ export async function createTopupCheckoutUrl(
 
   const tracker: string = session.data.tracker.token;
 
-  // Fix: Safepay SDK exposes `passport.create()` directly on the instance (or fallback via any)
+  // Safe accessor for passport client across SDK versions
   const passportClient = (safepay as any).passport || (safepay as any).auth?.passport;
   const authResponse = await passportClient.create();
   const tbt: string = authResponse.data;
 
-  const checkoutUrl = safepay.checkouts.payment.create({
+  // Safe accessor for checkout client (`checkout` vs `checkouts`)
+  const checkoutClient = (safepay as any).checkout?.payment || (safepay as any).checkouts?.payment;
+  const checkoutUrl = checkoutClient.create({
     tracker,
     tbt,
     environment: getEnv(),
