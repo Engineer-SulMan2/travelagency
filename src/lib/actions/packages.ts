@@ -6,13 +6,17 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 
-const ADMIN_ROLES = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN];
+// Role[] type explicitly set kar di hai taake TypeScript type mismatch na de
+const ADMIN_ROLES: Role[] = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN];
 
 async function requireAgencyAdmin() {
   const session = await auth();
-  if (!session || !ADMIN_ROLES.includes(session.user.role as Role)) {
+  
+  // Checking fixed: TypeScript safely validates the role
+  if (!session?.user?.role || !ADMIN_ROLES.includes(session.user.role as Role)) {
     throw new Error("Not authorized");
   }
+  
   const admin = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!admin) throw new Error("Not authorized");
   return admin;
