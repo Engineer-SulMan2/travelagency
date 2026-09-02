@@ -1001,3 +1001,21 @@ model Quote {
   @@index([agencyId])
   @@map("quotes")
 }
+
+// -------------------- Booking Notes --------------------
+// Team-visible notes attached to any booking (flight/hotel/package/visa).
+// Same pattern as CustomerNote.
+model BookingNote {
+  id          String      @id @default(cuid())
+  productType ProductType
+  referenceId String      // the booking id (Booking / HotelBooking / PackageBooking / VisaBooking)
+  agencyId    String?
+  authorId    String
+  note        String      @db.Text
+  createdAt   DateTime    @default(now())
+
+  @@index([productType, referenceId])
+  @@index([agencyId])
+  @@index([authorId])
+  @@map("booking_notes")
+}
