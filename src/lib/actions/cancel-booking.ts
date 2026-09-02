@@ -19,7 +19,7 @@ export async function cancelBooking(type: ProductType, id: string): Promise<Canc
   const currentUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!currentUser) return { error: "Not authenticated" };
 
-  const isAdmin = ADMIN_ROLES.includes(currentUser.role);
+ const isAdmin = (ADMIN_ROLES as Role[]).includes(currentUser.role);
 
   function authorize(record: { userId: string; agencyId: string | null } | null) {
     if (!record) return false;
