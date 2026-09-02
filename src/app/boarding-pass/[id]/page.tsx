@@ -32,7 +32,7 @@ export default async function BoardingPassPage({ params }: { params: Promise<{ i
 
   if (!booking) notFound();
 
-  const isAdmin = [Role.SUPER_ADMIN, Role.AGENCY_ADMIN].includes(session.user.role as Role);
+  const isAdmin = ([Role.SUPER_ADMIN, Role.AGENCY_ADMIN] as Role[]).includes(session.user.role as Role);
   const authorized = booking.userId === session.user.id || (isAdmin && booking.agencyId === session.user.agencyId);
   if (!authorized) redirect("/login");
 
