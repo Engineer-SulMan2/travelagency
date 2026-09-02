@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/prisma";
 import { RegisterAgentForm } from "@/components/auth/register-agent-form";
 
