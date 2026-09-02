@@ -13,6 +13,8 @@ const credentialsSchema = z.object({
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
+  trustHost: true,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   adapter: PrismaAdapter(prisma) as any,
   providers: [
     Credentials({
@@ -38,9 +40,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           );
         }
 
-        // A suspended agency (Super Admin oversight action) blocks every
-        // user in it from signing in. There's no approval gate — agencies
-        // get full access immediately on registration.
         if (user.agencyId) {
           const agency = await prisma.agency.findUnique({ where: { id: user.agencyId } });
           if (agency && !agency.isActive) {
