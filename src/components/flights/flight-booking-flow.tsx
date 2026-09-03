@@ -89,8 +89,8 @@ export function FlightBookingFlow({ markupPct }: { markupPct: number }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
       });
-      if (!res.ok) throw new Error("Search failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Search failed");
       return data.results;
     },
     onSuccess: (data) => {
@@ -125,7 +125,7 @@ export function FlightBookingFlow({ markupPct }: { markupPct: number }) {
             </div>
           )}
           {searchMutation.isError && (
-            <p className="text-sm text-red-600">Couldn&apos;t search flights. Please try again.</p>
+            <p className="text-sm text-red-600">{(searchMutation.error as Error)?.message ?? "Couldn't search flights. Please try again."}</p>
           )}
           {!searchMutation.isPending && results.length > 0 && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">

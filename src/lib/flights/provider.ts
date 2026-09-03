@@ -25,12 +25,13 @@ export function getActiveFlightProvider(): FlightProviderName {
 export async function searchFlights(params: FlightSearchParams): Promise<FlightResult[]> {
   const provider = getActiveFlightProvider();
 
-  try {
-    if (provider === "duffel") return await searchDuffelFlights(params);
-    if (provider === "amadeus") return await searchAmadeusFlights(params);
-  } catch (err) {
-    console.error(`[flights] "${provider}" search failed, falling back to mock:`, err);
-  }
+  // Deliberately NOT falling back to mock data on a live-provider error —
+  // silently showing fake flights when Duffel/Amadeus fails would risk an
+  // agent booking (and a customer paying for) a flight that doesn't
+  // actually exist. If the live provider fails, the search fails visibly
+  // instead, and the real error is available in the server logs.
+  if (provider === "duffel") return await searchDuffelFlights(params);
+  if (provider === "amadeus") return await searchAmadeusFlights(params);
 
   return searchMockFlights(params);
 }

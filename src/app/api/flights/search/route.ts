@@ -56,12 +56,20 @@ export async function POST(req: NextRequest) {
     await new Promise((r) => setTimeout(r, 500 + Math.random() * 400));
   }
 
-  const results = await searchFlights({
-    tripType,
-    legs,
-    passengers: Number.isFinite(passengers) && passengers > 0 ? passengers : 1,
-    cabinClass,
-  });
+  let results;
+  try {
+    results = await searchFlights({
+      tripType,
+      legs,
+      passengers: Number.isFinite(passengers) && passengers > 0 ? passengers : 1,
+      cabinClass,
+    });
+  } catch (err) {
+    // Surfaced directly in the response (not just server logs) so a
+    // live-provider failure is immediately visible while testing.
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: `Flight search failed: ${message}` }, { status: 502 });
+  }
 
   return NextResponse.json({ results });
 }
