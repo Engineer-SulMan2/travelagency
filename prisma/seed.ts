@@ -1,7 +1,10 @@
+import "dotenv/config";
 import { PrismaClient, Role } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const hashedPassword = await bcrypt.hash("Password123!", 10);
@@ -21,11 +24,13 @@ async function main() {
   // 2. Demo Agency
   const agency = await prisma.agency.upsert({
     where: { slug: "skyway-travels" },
-    update: {},
+    update: { approvedAt: new Date(), isActive: true },
     create: {
       name: "Skyway Travels",
       slug: "skyway-travels",
       email: "info@skywaytravels.com",
+      approvedAt: new Date(),
+      isActive: true,
     },
   });
 
@@ -33,11 +38,12 @@ async function main() {
   const agencyAdmin = await prisma.user.upsert({
     where: { email: "admin@skywaytravels.com" },
     update: {},
-    create: {
+        create: {
       name: "Agency Admin",
       email: "admin@skywaytravels.com",
       password: hashedPassword,
       role: Role.AGENCY_ADMIN,
+      status: "ACTIVE",
       agencyId: agency.id,
       walletBalance: 1000000, // seed float so demo bookings work immediately
     },
@@ -47,11 +53,12 @@ async function main() {
   await prisma.user.upsert({
     where: { email: "subagent@skywaytravels.com" },
     update: {},
-    create: {
+       create: {
       name: "Ali (Sub Agent)",
       email: "subagent@skywaytravels.com",
       password: hashedPassword,
       role: Role.SUB_AGENT,
+      status: "ACTIVE",
       agencyId: agency.id,
       parentId: agencyAdmin.id,
       defaultMarkupPct: 3.5,
