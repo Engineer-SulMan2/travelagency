@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Ban, CheckCircle } from "lucide-react";
-import { toggleAgencyStatus, type AgencyOverviewRow } from "@/lib/actions/platform";
+import { Building2, Ban, CheckCircle, Check, X, Clock } from "lucide-react";
+import { toggleAgencyStatus, approveAgency, rejectAgency, type AgencyOverviewRow } from "@/lib/actions/platform";
 import { cn } from "@/lib/utils";
 
 function formatMoney(n: number) {
@@ -20,6 +20,21 @@ export function AgenciesTable({ agencies }: { agencies: AgencyOverviewRow[] }) {
   async function handleToggle(id: string) {
     setBusyId(id);
     await toggleAgencyStatus(id);
+    setBusyId(null);
+    router.refresh();
+  }
+
+  async function handleApprove(id: string) {
+    setBusyId(id);
+    await approveAgency(id);
+    setBusyId(null);
+    router.refresh();
+  }
+
+  async function handleReject(id: string, name: string) {
+    if (!confirm(`Reject and remove ${name}'s registration? This deletes the agency and its admin account.`)) return;
+    setBusyId(id);
+    await rejectAgency(id);
     setBusyId(null);
     router.refresh();
   }
@@ -54,33 +69,58 @@ export function AgenciesTable({ agencies }: { agencies: AgencyOverviewRow[] }) {
             <tr key={a.id} className="border-b border-slate-50 text-sm transition-colors last:border-0 hover:bg-slate-50/60">
               <td className="py-3.5 pr-4 font-medium text-slate-900">{a.name}</td>
               <td className="py-3.5 pr-4">
-                <span
-                  className={cn(
-                    "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                    a.isActive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                  )}
-                >
-                  {a.isActive ? "Active" : "Suspended"}
-                </span>
+                {!a.approvedAt ? (
+                  <span className="flex w-fit items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                    <Clock className="h-3 w-3" /> Pending approval
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      "rounded-full px-2.5 py-0.5 text-xs font-medium",
+                      a.isActive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                    )}
+                  >
+                    {a.isActive ? "Active" : "Suspended"}
+                  </span>
+                )}
               </td>
               <td className="py-3.5 pr-4 text-slate-700">{a.subAgentCount}</td>
               <td className="py-3.5 pr-4 text-slate-700">{a.bookingCount}</td>
               <td className="py-3.5 pr-4 font-medium text-slate-900">{formatMoney(a.totalRevenue)}</td>
               <td className="py-3.5 pr-4 text-slate-500">{formatDate(a.createdAt)}</td>
               <td className="py-3.5">
-                <button
-                  onClick={() => handleToggle(a.id)}
-                  disabled={busyId === a.id}
-                  className={cn(
-                    "flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-40",
-                    a.isActive
-                      ? "border-red-200 text-red-600 hover:bg-red-50"
-                      : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                  )}
-                >
-                  {a.isActive ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
-                  {a.isActive ? "Suspend" : "Activate"}
-                </button>
+                {!a.approvedAt ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleApprove(a.id)}
+                      disabled={busyId === a.id}
+                      className="flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-50 disabled:opacity-40"
+                    >
+                      <Check className="h-3.5 w-3.5" /> Approve
+                    </button>
+                    <button
+                      onClick={() => handleReject(a.id, a.name)}
+                      disabled={busyId === a.id}
+                      className="flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-40"
+                    >
+                      <X className="h-3.5 w-3.5" /> Reject
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleToggle(a.id)}
+                    disabled={busyId === a.id}
+                    className={cn(
+                      "flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-40",
+                      a.isActive
+                        ? "border-red-200 text-red-600 hover:bg-red-50"
+                        : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                    )}
+                  >
+                    {a.isActive ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                    {a.isActive ? "Suspend" : "Activate"}
+                  </button>
+                )}
               </td>
             </tr>
           ))}
