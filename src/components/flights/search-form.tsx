@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRightLeft, Search, MapPin, Users2, Armchair, Plus, X, Star, BookmarkPlus } from "lucide-react";
-import { AIRPORTS } from "@/lib/airports";
+import { ArrowRightLeft, Search, Users2, Armchair, Plus, X, Star, BookmarkPlus } from "lucide-react";
+import { AirportAutocomplete } from "@/components/flights/airport-autocomplete";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { addSavedRoute, deleteSavedRoute, getMySavedRoutes, type SavedRouteRow } from "@/lib/actions/saved-routes";
@@ -188,21 +188,11 @@ export function FlightSearchForm({
           <div key={i} className="grid grid-cols-1 items-end gap-4 md:grid-cols-12">
             <div className="md:col-span-4">
               <label className={labelClass}>{tripType === "MULTI_CITY" ? `Leg ${i + 1} — From` : "From"}</label>
-              <div className="relative">
-                <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <select
-                  value={leg.origin}
-                  onChange={(e) => updateLeg(i, "origin", e.target.value)}
-                  className={fieldClass}
-                >
-                  <option value="">Select</option>
-                  {AIRPORTS.map((a) => (
-                    <option key={a.code} value={a.code}>
-                      {a.city} ({a.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <AirportAutocomplete
+                value={leg.origin}
+                onChange={(code) => updateLeg(i, "origin", code)}
+                placeholder="City or airport"
+              />
             </div>
 
             <div className="flex justify-center md:col-span-1">
@@ -218,21 +208,11 @@ export function FlightSearchForm({
 
             <div className="md:col-span-4">
               <label className={labelClass}>To</label>
-              <div className="relative">
-                <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <select
-                  value={leg.destination}
-                  onChange={(e) => updateLeg(i, "destination", e.target.value)}
-                  className={fieldClass}
-                >
-                  <option value="">Select</option>
-                  {AIRPORTS.map((a) => (
-                    <option key={a.code} value={a.code}>
-                      {a.city} ({a.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <AirportAutocomplete
+                value={leg.destination}
+                onChange={(code) => updateLeg(i, "destination", code)}
+                placeholder="City or airport"
+              />
             </div>
 
             <div className={tripType === "MULTI_CITY" && legs.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
