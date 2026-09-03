@@ -17,6 +17,7 @@ export type AgencyOverviewRow = {
   id: string;
   name: string;
   isActive: boolean;
+  approvedAt: string | null;
   subAgentCount: number;
   bookingCount: number;
   totalRevenue: number;
@@ -76,10 +77,11 @@ export async function getPlatformOverview(): Promise<PlatformOverview> {
       Number(packageSum._sum.totalAmount ?? 0) +
       Number(visaSum._sum.totalAmount ?? 0);
 
-    rows.push({
+       rows.push({
       id: agency.id,
       name: agency.name,
       isActive: agency.isActive,
+      approvedAt: agency.approvedAt ? agency.approvedAt.toISOString() : null,
       subAgentCount: agency.users.length,
       bookingCount: flightCount + hotelCount + packageCount + visaCount,
       totalRevenue,
@@ -115,6 +117,64 @@ export async function toggleAgencyStatus(agencyId: string): Promise<PlatformActi
       action: "AGENCY_MARKUP_UPDATED",
       description: `Platform admin ${!agency.isActive ? "activated" : "suspended"} agency ${agency.name}`,
     });
+  });
+
+  revalidatePath("/admin/platform");
+  return { success: true };
+}
+
+
+export async function approveAgency(agencyId: string): Promise<PlatformActionState> {
+  const superAdmin = await requireSuperAdmin();
+  if (!superAdmin) return { error: "Not authorized" };
+
+  const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
+  if (!agency) return { error: "Agency not found" };
+  if (agency.approvedAt) return { error: "Agency is already approved" };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.agency.update({ where: { id: agencyId }, data: { approvedAt: new Date() } });
+
+    const admins = await tx.user.findMany({
+      where: { agencyId, role: Role.AGENCY_ADMIN },
+      select: { id: true },
+    });
+    for (const admin of admins) {
+      await tx.notification.create({
+        data: {
+          userId: admin.id,
+          type: "SYSTEM",
+          title: "Agency approved",
+          message: "Your agency has been approved by the platform. You can now sign in.",
+        },
+      });
+    }
+
+    await logActivity(tx, {
+      actorId: superAdmin.id,
+      agencyId: agency.id,
+      action: "AGENCY_MARKUP_UPDATED",
+      description: `Platform admin approved agency ${agency.name}`,
+    });
+  });
+
+  revalidatePath("/admin/platform");
+  return { success: true };
+}
+
+export async function rejectAgency(agencyId: string): Promise<PlatformActionState> {
+  const superAdmin = await requireSuperAdmin();
+  if (!superAdmin) return { error: "Not authorized" };
+
+  const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
+  if (!agency) return { error: "Agency not found" };
+  if (agency.approvedAt) return { error: "Cannot reject an already-approved agency" };
+
+  // A pending agency has no bookings/sub-agents yet — safe to remove
+  // entirely along with its admin account.
+  await prisma.$transaction(async (tx) => {
+    await tx.user.deleteMany({ where: { agencyId } });
+    await tx.agency.delete({ where: { id: agencyId } });
   });
 
   revalidatePath("/admin/platform");
