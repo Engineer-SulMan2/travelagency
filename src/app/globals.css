@@ -7,3 +7,36 @@
     background: white;
   }
 }
+ /* Dual-handle range slider (flight time filters) — the input itself is
+   pointer-events-none so clicks pass through to whichever thumb is on
+   top, but the thumb graphic itself needs pointer-events re-enabled. */
+.range-thumb::-webkit-slider-thumb {
+  pointer-events: auto;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #0f172a;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  margin-top: -6px;
+}
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #0f172a;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.range-thumb::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+.range-thumb::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
