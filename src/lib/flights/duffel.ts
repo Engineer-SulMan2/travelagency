@@ -32,6 +32,7 @@ type DuffelOffer = {
   id: string;
   total_amount: string;
   slices: DuffelSlice[];
+  owner?: { logo_symbol_url?: string };
 };
 
 export async function searchDuffelFlights(params: FlightSearchParams): Promise<FlightResult[]> {
@@ -70,10 +71,13 @@ export async function searchDuffelFlights(params: FlightSearchParams): Promise<F
   return offers.slice(0, 10).map((offer) => {
     const itineraries: FlightItinerary[] = offer.slices.map((slice) => ({
       segments: slice.segments.map(
-               (seg): FlightSegment => ({
+                      (seg): FlightSegment => ({
           airline: seg.marketing_carrier?.name ?? "Unknown",
           airlineCode: seg.marketing_carrier?.iata_code ?? "",
-          airlineLogoUrl: seg.marketing_carrier?.logo_symbol_url ?? null,
+          // Segment-level marketing_carrier.logo_symbol_url isn't always
+          // populated by Duffel — the offer's owner airline almost always
+          // has one, so fall back to that.
+          airlineLogoUrl: seg.marketing_carrier?.logo_symbol_url ?? offer.owner?.logo_symbol_url ?? null,
           flightNumber: `${seg.marketing_carrier?.iata_code ?? ""}${seg.marketing_carrier_flight_number ?? ""}`,
           origin: seg.origin.iata_code,
           destination: seg.destination.iata_code,
