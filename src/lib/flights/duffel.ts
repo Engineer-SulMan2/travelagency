@@ -17,7 +17,7 @@ const CABIN_CLASS_MAP: Record<string, string> = {
 };
 
 type DuffelSegment = {
-  marketing_carrier?: { name?: string; iata_code?: string };
+  marketing_carrier?: { name?: string; iata_code?: string; logo_symbol_url?: string };
   marketing_carrier_flight_number?: string;
   origin: { iata_code: string };
   destination: { iata_code: string };
@@ -70,9 +70,10 @@ export async function searchDuffelFlights(params: FlightSearchParams): Promise<F
   return offers.slice(0, 10).map((offer) => {
     const itineraries: FlightItinerary[] = offer.slices.map((slice) => ({
       segments: slice.segments.map(
-        (seg): FlightSegment => ({
+               (seg): FlightSegment => ({
           airline: seg.marketing_carrier?.name ?? "Unknown",
           airlineCode: seg.marketing_carrier?.iata_code ?? "",
+          airlineLogoUrl: seg.marketing_carrier?.logo_symbol_url ?? null,
           flightNumber: `${seg.marketing_carrier?.iata_code ?? ""}${seg.marketing_carrier_flight_number ?? ""}`,
           origin: seg.origin.iata_code,
           destination: seg.destination.iata_code,

@@ -47,8 +47,13 @@ function ItineraryRow({ itinerary, label }: { itinerary: FlightItinerary; label?
 
   return (
     <div className="flex items-center gap-4 border-b border-slate-100 py-4 last:border-0">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white">
-        <Plane className="h-4 w-4 text-slate-500" />
+           <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
+        {first.airlineLogoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={first.airlineLogoUrl} alt={first.airline} className="h-6 w-6 object-contain" />
+        ) : (
+          <Plane className="h-4 w-4 text-slate-500" />
+        )}
       </div>
 
       <div className="min-w-0 flex-1">

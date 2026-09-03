@@ -5,6 +5,7 @@ export type TripType = "ONE_WAY" | "ROUND_TRIP" | "MULTI_CITY";
 export type FlightSegment = {
   airline: string;
   airlineCode: string;
+  airlineLogoUrl?: string | null;
   flightNumber: string;
   origin: string;
   destination: string;
