@@ -239,7 +239,7 @@ function SidebarContent({
           </div>
         )}
         <div>
-          <p className="text-sm font-semibold leading-tight text-slate-900">Travel Agency SaaS</p>
+          <p className="text-sm font-semibold leading-tight text-slate-900">Travel Agency</p>
           <p className="text-xs leading-tight text-slate-400">{roleLabel}</p>
         </div>
       </div>
@@ -328,7 +328,7 @@ export function DashboardShell({
               <PlaneTakeoff className="h-3.5 w-3.5 text-white" />
             </div>
           )}
-          <p className="text-sm font-semibold text-slate-900">Travel Agency SaaS</p>
+          <p className="text-sm font-semibold text-slate-900">Travel Agency</p>
         </div>
         <div className="flex items-center gap-1">
           <NotificationBell />

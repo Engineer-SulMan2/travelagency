@@ -1,5 +1,5 @@
 {
-  "name": "Travel Agency SaaS",
+  "name": "Travel Agency",
   "short_name": "TravelSaaS",
   "description": "Manage flights, hotels, packages, and visa bookings for your travel agency.",
   "start_url": "/login",

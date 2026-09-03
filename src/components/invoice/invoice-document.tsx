@@ -44,7 +44,7 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
             <div>
               <p className="text-lg font-semibold leading-tight text-slate-900">{data.agencyName}</p>
               <p className="text-xs text-slate-400">
-                Travel Agency SaaS{data.taxId ? ` · Tax ID: ${data.taxId}` : ""}
+                Travel Agency{data.taxId ? ` · Tax ID: ${data.taxId}` : ""}
               </p>
             </div>
           </div>

@@ -1,4 +1,4 @@
-# Travel Agency SaaS — Phase 1 through 5
+# Travel Agency — Phase 1 through 5
 
 Auth, database schema, role-based dashboards, flight/hotel/package
 search + booking flows, sub-agent management with markup/commission,

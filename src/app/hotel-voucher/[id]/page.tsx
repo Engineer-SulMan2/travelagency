@@ -36,7 +36,7 @@ export default async function HotelVoucherPage({ params }: { params: Promise<{ i
       <HotelVoucher
         data={{
           bookingRef: booking.bookingRef,
-          agencyName: booking.user.agency?.name ?? "Travel Agency SaaS",
+          agencyName: booking.user.agency?.name ?? "Travel Agency",
           currency: booking.user.agency?.currency,
           stampUrl: booking.user.agency?.stampUrl,
           hotelName: booking.hotelName,

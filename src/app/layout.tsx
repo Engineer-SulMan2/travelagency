@@ -5,8 +5,8 @@ import { ServiceWorkerRegister } from "@/components/service-worker-register";
 
 export const metadata: Metadata = {
   title: {
-    default: "Travel Agency SaaS",
-    template: "%s · Travel Agency SaaS",
+    default: "Travel Agency",
+    template: "%s · Travel Agency",
   },
   description: "Flight, Hotel & Package booking platform for agencies and sub-agents",
   manifest: "/manifest.json",
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
   },
   openGraph: {
-    title: "Travel Agency SaaS",
+    title: "Travel Agency",
     description: "Flight, Hotel & Package booking platform for agencies and sub-agents",
     type: "website",
   },

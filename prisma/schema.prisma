@@ -1,5 +1,5 @@
 // ==========================================================
-// Travel Agency SaaS — Phase 1 Schema
+// Travel Agency — Phase 1 Schema
 // Covers: Auth (NextAuth/Auth.js), Agency + Sub-Agent hierarchy
 // Later phases will extend this file with Booking, Flight,
 // Hotel, Payment, Wallet-transaction models etc.

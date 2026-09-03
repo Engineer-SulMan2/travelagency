@@ -5,7 +5,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 // Resend's shared onboarding@resend.dev sender works without verifying a
 // domain — fine for testing. Set RESEND_FROM_EMAIL once a domain is
 // verified in the Resend dashboard for production sending.
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Travel Agency SaaS <onboarding@resend.dev>";
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Travel Agency <onboarding@resend.dev>";
 
 export async function sendLoginOtpEmail(to: string, code: string): Promise<{ sent: boolean }> {
   if (!resend) {

@@ -84,7 +84,7 @@ export default async function BoardingPassPage({ params }: { params: Promise<{ i
                   key={`${legIndex}-${p.id}`}
                   data={{
                     bookingRef: booking.bookingRef,
-                    agencyName: booking.user.agency?.name ?? "Travel Agency SaaS",
+                    agencyName: booking.user.agency?.name ?? "Travel Agency",
                     airline: leg.airline,
                     flightNumber: leg.flightNumber,
                     origin: leg.origin,

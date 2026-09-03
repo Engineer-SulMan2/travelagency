@@ -34,7 +34,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
             </span>
             <div>
               <p className="text-xs font-medium uppercase tracking-widest text-indigo-100">Quote</p>
-              <p className="text-sm font-semibold">{quote.user.agency?.name ?? "Travel Agency SaaS"}</p>
+              <p className="text-sm font-semibold">{quote.user.agency?.name ?? "Travel Agency"}</p>
             </div>
           </div>
           <p className="mt-6 text-2xl font-bold leading-snug tracking-tight">{quote.title}</p>

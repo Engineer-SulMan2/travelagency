@@ -1,6 +1,6 @@
 import * as OTPAuth from "otpauth";
 
-const ISSUER = "Travel Agency SaaS";
+const ISSUER = "Travel Agency";
 
 export function generateTotpSecret(): string {
   return new OTPAuth.Secret({ size: 20 }).base32;
