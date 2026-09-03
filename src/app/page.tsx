@@ -12,6 +12,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { auth } from "@/lib/auth";
+import { HeroBackgroundVideo } from "@/components/hero-background-video";
 
 const serif = Newsreader({ subsets: ["latin"], weight: ["400", "500", "600"], style: ["normal", "italic"] });
 
@@ -62,21 +63,7 @@ export default async function HomePage() {
     <div className="bg-white">
       {/* ---------- Hero band ---------- */}
       <div className="relative overflow-hidden bg-[#0B1120]">
-        {/* Faint converging flight-path lines — grounds the hero in the
-            subject without resorting to literal plane clipart. */}
-        <svg
-          className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.18]"
-          viewBox="0 0 1200 800"
-          preserveAspectRatio="xMidYMid slice"
-          fill="none"
-        >
-          <path d="M-50 650 C 250 500, 550 500, 1250 120" stroke="#D4A03C" strokeWidth="1" />
-          <path d="M-50 750 C 300 620, 600 600, 1250 260" stroke="#D4A03C" strokeWidth="1" />
-          <path d="M-50 500 C 300 420, 650 430, 1250 40" stroke="#4F46E5" strokeWidth="1" />
-          <circle cx="1250" cy="120" r="3" fill="#D4A03C" />
-          <circle cx="1250" cy="260" r="3" fill="#D4A03C" />
-          <circle cx="1250" cy="40" r="3" fill="#4F46E5" />
-        </svg>
+        <HeroBackgroundVideo />
 
         <header className="relative border-b border-white/10">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
