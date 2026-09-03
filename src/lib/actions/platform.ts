@@ -132,8 +132,16 @@ export async function approveAgency(agencyId: string): Promise<PlatformActionSta
   if (!agency) return { error: "Agency not found" };
   if (agency.approvedAt) return { error: "Agency is already approved" };
 
-  await prisma.$transaction(async (tx) => {
+   await prisma.$transaction(async (tx) => {
     await tx.agency.update({ where: { id: agencyId }, data: { approvedAt: new Date() } });
+
+    // The agency's first admin(s) were created with status PENDING at
+    // registration — approving the agency must also activate them,
+    // otherwise login still blocks on "account awaiting approval".
+    await tx.user.updateMany({
+      where: { agencyId, role: Role.AGENCY_ADMIN, status: "PENDING" },
+      data: { status: "ACTIVE" },
+    });
 
     const admins = await tx.user.findMany({
       where: { agencyId, role: Role.AGENCY_ADMIN },
