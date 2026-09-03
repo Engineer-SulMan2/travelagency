@@ -36,13 +36,9 @@ npm run prisma:seed   # demo super admin / agency admin / sub-agent + 2 demo pac
 npm run dev
 ```
 
-### Seeded logins (password for all: `Password123!`)
 
-| Role          | Email                        |
-|---------------|-------------------------------|
-| Super Admin   | superadmin@travelsaas.com     |
-| Agency Admin  | admin@skywaytravels.com       |
-| Sub-Agent     | subagent@skywaytravels.com    |
+
+
 
 ## What's built, phase by phase
 
