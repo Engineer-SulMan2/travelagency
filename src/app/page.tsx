@@ -121,15 +121,21 @@ export default async function HomePage() {
           </div>
 
           {/* Right: a stylised ledger stub — the actual mechanic the product
-              automates, shown as the hero visual rather than a screenshot. */}
-          <div className="relative mx-auto w-full max-w-sm">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm">
-              <div className="flex items-center justify-between border-b border-dashed border-white/15 pb-4">
+              automates, shown as the hero visual rather than a screenshot.
+              Styled as an actual ticket stub: punched notches on the
+              dashed line, a slight tilt for a "held in hand" feel, and a
+              barcode strip at the base. */}
+          <div className="relative mx-auto w-full max-w-sm rotate-[-1.5deg] transition-transform duration-300 hover:rotate-0">
+            <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/40 backdrop-blur-sm">
+              <div className="relative flex items-center justify-between border-b border-dashed border-white/15 pb-4">
                 <div>
                   <p className="font-mono text-xs text-white/40">TRV-8K2N4Q</p>
                   <p className={`${serif.className} mt-1 text-lg text-white`}>KHI → DXB</p>
                 </div>
                 <PlaneTakeoff className="h-5 w-5 text-[#D4A03C]" />
+                {/* Punched notches */}
+                <span className="absolute -left-9 bottom-[-9px] h-5 w-5 rounded-full bg-[#0B1120]" />
+                <span className="absolute -right-9 bottom-[-9px] h-5 w-5 rounded-full bg-[#0B1120]" />
               </div>
               <div className="space-y-3 py-4 text-sm">
                 <div className="flex items-center justify-between">
@@ -145,9 +151,20 @@ export default async function HomePage() {
                   <span className="text-[#D4A03C]">PKR 2,720</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between border-t border-dashed border-white/15 pt-4">
+              <div className="relative flex items-center justify-between border-t border-dashed border-white/15 pt-4">
                 <span className="text-sm text-white/40">Wallet, settled</span>
                 <span className={`${serif.className} text-xl text-white`}>PKR 73,440</span>
+                <span className="absolute -left-9 top-[-9px] h-5 w-5 rounded-full bg-[#0B1120]" />
+                <span className="absolute -right-9 top-[-9px] h-5 w-5 rounded-full bg-[#0B1120]" />
+              </div>
+
+              {/* Barcode strip — authenticity nod to a real boarding pass */}
+              <div className="mt-6 flex h-6 items-end gap-[3px] opacity-60">
+                {[3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 4, 2, 1, 3, 2, 1, 4, 3, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1].map(
+                  (w, i) => (
+                    <span key={i} className="bg-white/70" style={{ width: `${w}px`, height: "100%" }} />
+                  )
+                )}
               </div>
             </div>
           </div>
